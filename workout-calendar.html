@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Workout Calendar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --purple: #534AB7;
+    --purple-light: #EEEDFE;
+    --purple-dark: #3C3489;
+    --bg: #F4F3F0;
+    --surface: #ffffff;
+    --surface2: #F0EFEb;
+    --border: rgba(0,0,0,0.1);
+    --border-strong: rgba(0,0,0,0.2);
+    --text: #1a1a1a;
+    --text-muted: #6b6b6b;
+    --text-faint: #aaa;
+    --red: #E24B4A;
+    --red-light: #FCEBEB;
+    --red-dark: #A32D2D;
+    --radius: 12px;
+    --radius-sm: 6px;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem 1rem 4rem;
+  }
+
+  /* ── Header ── */
+  .site-header {
+    max-width: 960px; margin: 0 auto 2rem;
+    display: flex; align-items: flex-end; justify-content: space-between;
+    gap: 1rem; flex-wrap: wrap;
+  }
+  .site-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(2.5rem, 6vw, 4rem);
+    letter-spacing: 0.04em; line-height: 1; color: var(--text);
+  }
+  .site-title span { color: var(--purple); }
+
+  .week-nav {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 100px; padding: 6px 10px;
+  }
+  .week-label {
+    font-size: 13px; font-weight: 500; color: var(--text-muted);
+    min-width: 150px; text-align: center;
+  }
+  .nav-btn {
+    width: 30px; height: 30px; border-radius: 50%;
+    border: 1px solid var(--border); background: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text); font-size: 16px; transition: background 0.15s;
+  }
+  .nav-btn:hover { background: var(--surface2); }
+
+  /* ── Status bar ── */
+  #status-bar {
+    max-width: 960px; margin: 0 auto 1rem;
+    font-size: 12px; color: var(--text-faint);
+    display: flex; align-items: center; gap: 6px;
+    min-height: 18px;
+  }
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--text-faint); flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .status-dot.connected { background: #1D9E75; }
+  .status-dot.error     { background: var(--red); }
+
+  /* ── Calendar ── */
+  .calendar-wrap { max-width: 960px; margin: 0 auto; }
+  .calendar {
+    display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 8px; margin-bottom: 1.5rem;
+  }
+  @media (max-width: 640px) {
+    .calendar { grid-template-columns: repeat(2, 1fr); }
+    .calendar .day-card:nth-child(7) { grid-column: span 2; }
+  }
+
+  .day-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 12px 10px 36px;
+    min-height: 150px; cursor: pointer; position: relative;
+    transition: border-color 0.15s, transform 0.1s;
+  }
+  .day-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+  .day-card.today   { border-color: var(--purple); border-width: 2px; }
+  .day-card.selected { border-color: var(--purple); border-width: 2px; box-shadow: 0 0 0 3px rgba(83,74,183,0.12); }
+
+  .day-name {
+    font-size: 10px; font-weight: 600; color: var(--text-faint);
+    text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2px;
+  }
+  .day-date {
+    font-family: 'Bebas Neue', sans-serif; font-size: 28px;
+    letter-spacing: 0.02em; color: var(--text); margin-bottom: 8px; line-height: 1;
+  }
+  .day-card.today .day-date { color: var(--purple); }
+
+  .block-dot {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 10px; font-weight: 500; margin-bottom: 3px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .block-dot .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .rest-label  { font-size: 11px; color: var(--text-faint); font-style: italic; margin-top: 4px; }
+  .more-label  { font-size: 10px; color: var(--text-faint); margin-top: 2px; }
+
+  .add-btn {
+    position: absolute; bottom: 8px; right: 8px;
+    width: 24px; height: 24px; border-radius: 50%;
+    border: 1px solid var(--border); background: var(--bg); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted); font-size: 18px; line-height: 1;
+    opacity: 0; transition: opacity 0.15s, background 0.15s;
+  }
+  .day-card:hover .add-btn { opacity: 1; }
+  .add-btn:hover { background: var(--purple-light); color: var(--purple); border-color: var(--purple); }
+
+  /* ── Panel ── */
+  .panel {
+    max-width: 960px; margin: 0 auto;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1.5rem;
+    animation: slideIn 0.2s ease;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .panel-header {
+    display: flex; align-items: baseline; gap: 12px;
+    margin-bottom: 1.25rem; flex-wrap: wrap;
+  }
+  .panel-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem; letter-spacing: 0.04em; color: var(--text);
+  }
+  .panel-day-tag {
+    font-size: 12px; font-weight: 600; color: var(--purple);
+    background: var(--purple-light); border-radius: 100px;
+    padding: 3px 10px; letter-spacing: 0.04em;
+  }
+
+  /* ── Block card (edit) ── */
+  .block-card {
+    border: 1px solid var(--border); border-radius: var(--radius);
+    margin-bottom: 10px; overflow: hidden;
+  }
+  .block-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; cursor: pointer; user-select: none;
+    transition: background 0.15s;
+  }
+  .block-header:hover { background: var(--surface2); }
+  .block-color-bar { width: 4px; height: 20px; border-radius: 2px; flex-shrink: 0; }
+  .block-name-input {
+    flex: 1; font-size: 14px; font-weight: 600;
+    border: none; background: transparent; color: var(--text);
+    font-family: 'DM Sans', sans-serif; outline: none; cursor: text; padding: 0;
+  }
+  .block-name-input:focus { background: var(--bg); border-radius: 4px; padding: 2px 6px; }
+  .block-count {
+    font-size: 11px; color: var(--text-faint);
+    background: var(--surface2); border-radius: 100px; padding: 2px 8px;
+  }
+  .block-chevron { font-size: 12px; color: var(--text-faint); transition: transform 0.2s; flex-shrink: 0; }
+  .block-card.collapsed .block-chevron { transform: rotate(-90deg); }
+  .block-del-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-faint); font-size: 16px; padding: 0 2px;
+    transition: color 0.15s; flex-shrink: 0;
+  }
+  .block-del-btn:hover { color: var(--red); }
+
+  .block-body { padding: 0 14px 12px; border-top: 1px solid var(--border); }
+  .block-card.collapsed .block-body { display: none; }
+
+  .col-labels {
+    display: grid; grid-template-columns: 1fr 80px 80px 36px;
+    gap: 8px; padding: 8px 0 4px;
+    border-bottom: 1px solid var(--border); margin-bottom: 8px;
+  }
+  .col-label {
+    font-size: 10px; color: var(--text-faint); text-align: center;
+    font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .col-label:first-child { text-align: left; }
+
+  .ex-row {
+    display: grid; grid-template-columns: 1fr 80px 80px 36px;
+    gap: 8px; align-items: center; margin-bottom: 8px;
+  }
+
+  input[type=text], input[type=number] {
+    width: 100%; padding: 7px 9px;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    font-size: 13px; font-family: 'DM Sans', sans-serif;
+    background: var(--bg); color: var(--text);
+    transition: border-color 0.15s; outline: none;
+  }
+  input[type=text]:focus, input[type=number]:focus {
+    border-color: var(--purple);
+    box-shadow: 0 0 0 3px rgba(83,74,183,0.1);
+    background: var(--surface);
+  }
+  input[type=number] { text-align: center; }
+
+  .remove-btn {
+    width: 36px; height: 36px; border: 1px solid var(--border);
+    background: none; border-radius: var(--radius-sm); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-faint); font-size: 16px;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .remove-btn:hover { background: var(--red-light); color: var(--red-dark); border-color: var(--red); }
+
+  .btn-add-ex {
+    background: none; border: 1px dashed var(--border-strong);
+    border-radius: var(--radius-sm); padding: 6px 12px;
+    font-size: 12px; color: var(--text-muted); cursor: pointer;
+    font-family: 'DM Sans', sans-serif; margin-top: 4px;
+    transition: background 0.15s, color 0.15s;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .btn-add-ex:hover { background: var(--purple-light); color: var(--purple); border-color: var(--purple); border-style: solid; }
+
+  .add-block-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 1.25rem; }
+  .btn-add-block {
+    background: none; border: 1px dashed var(--border-strong);
+    border-radius: var(--radius-sm); padding: 7px 14px;
+    font-size: 13px; color: var(--text-muted); cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: background 0.15s, color 0.15s;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .btn-add-block:hover { background: var(--purple-light); color: var(--purple); border-color: var(--purple); border-style: solid; }
+
+  .action-row {
+    display: flex; gap: 8px; margin-top: 1.25rem;
+    flex-wrap: wrap; align-items: center;
+    border-top: 1px solid var(--border); padding-top: 1rem;
+  }
+  .btn-save {
+    background: var(--purple); color: #fff; border: none;
+    border-radius: var(--radius-sm); padding: 9px 20px;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; transition: background 0.15s;
+  }
+  .btn-save:hover { background: var(--purple-dark); }
+  .btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
+  .btn-cancel {
+    background: none; border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm); padding: 9px 16px;
+    font-size: 13px; cursor: pointer; color: var(--text);
+    font-family: 'DM Sans', sans-serif; transition: background 0.15s;
+  }
+  .btn-cancel:hover { background: var(--surface2); }
+  .btn-edit {
+    background: var(--purple-light); color: var(--purple);
+    border: 1px solid transparent; border-radius: var(--radius-sm);
+    padding: 9px 16px; font-size: 13px; font-weight: 500; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; transition: background 0.15s;
+  }
+  .btn-edit:hover { background: #DDDAF8; }
+  .btn-delete {
+    background: none; border: 1px solid #F09595;
+    border-radius: var(--radius-sm); padding: 9px 16px;
+    font-size: 13px; cursor: pointer; color: var(--red-dark);
+    font-family: 'DM Sans', sans-serif; margin-left: auto; transition: background 0.15s;
+  }
+  .btn-delete:hover { background: var(--red-light); }
+  .btn-close {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-faint); font-size: 20px;
+    margin-left: auto; padding: 4px; border-radius: 50%;
+    display: flex; transition: color 0.15s;
+  }
+  .btn-close:hover { color: var(--text); }
+
+  /* View mode */
+  .view-block { margin-bottom: 20px; }
+  .view-block-title {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;
+  }
+  .view-block-bar { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .exercise-list { list-style: none; }
+  .exercise-list li {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+  }
+  .exercise-list li:last-child { border-bottom: none; }
+  .ex-name { font-weight: 500; font-size: 15px; }
+  .ex-meta {
+    font-size: 13px; color: var(--text-muted);
+    background: var(--surface2); border-radius: var(--radius-sm); padding: 4px 10px;
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <h1 class="site-title">WORKOUT<span>CAL</span></h1>
+  <nav class="week-nav" aria-label="Week navigation">
+    <button class="nav-btn" id="prevWeek">&#8249;</button>
+    <span class="week-label" id="weekLabel"></span>
+    <button class="nav-btn" id="nextWeek">&#8250;</button>
+  </nav>
+</header>
+
+<div id="status-bar">
+  <span class="status-dot" id="statusDot"></span>
+  <span id="statusText">Connecting to database...</span>
+</div>
+
+<main class="calendar-wrap">
+  <div class="calendar" id="calendar"></div>
+  <div id="panel"></div>
+</main>
+
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, doc, getDoc, setDoc, deleteDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  /* ── Firebase init ── */
+  const firebaseConfig = {
+    apiKey: "AIzaSyBMz8x997-kQlF7SFeXX3YpJ5eYsylM4ms",
+    authDomain: "workoutcal-dd886.firebaseapp.com",
+    projectId: "workoutcal-dd886",
+    storageBucket: "workoutcal-dd886.firebasestorage.app",
+    messagingSenderId: "148377156051",
+    appId: "1:148377156051:web:a5933b354de0b02f509726",
+    measurementId: "G-52JN5EDVGB"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getFirestore(app);
+
+  /* ── Constants ── */
+  const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  const BLOCK_COLORS = [
+    '#1D9E75','#534AB7','#378ADD','#EF9F27','#D4537E','#639922','#D85A30'
+  ];
+
+  const DEFAULT_BLOCKS = () => [
+    { name: 'Warm Up',         exercises: [{ name:'', sets:'', reps:'' }], collapsed: false },
+    { name: 'Workout Block 1', exercises: [{ name:'', sets:'', reps:'' }], collapsed: false },
+    { name: 'Cool Down',       exercises: [{ name:'', sets:'', reps:'' }], collapsed: false },
+  ];
+
+  /* ── State ── */
+  let weekOffset   = 0;
+  let selectedDate = null;
+  let mode         = null;
+  let editBlocks   = [];
+  let workouts     = {};       // local cache
+  let unsubscribes = [];       // Firestore listeners
+
+  /* ── Status UI ── */
+  function setStatus(state, text) {
+    const dot  = document.getElementById('statusDot');
+    const span = document.getElementById('statusText');
+    dot.className  = 'status-dot' + (state ? ' ' + state : '');
+    span.textContent = text;
+  }
+
+  /* ── Firestore helpers ── */
+  function workoutRef(key) {
+    return doc(db, 'workouts', key);
+  }
+
+  async function saveToFirebase(key, data) {
+    await setDoc(workoutRef(key), data);
+  }
+
+  async function deleteFromFirebase(key) {
+    await deleteDoc(workoutRef(key));
+  }
+
+  /* Subscribe to the whole week so both users see live updates */
+  function subscribeToWeek() {
+    // Unsubscribe old listeners
+    unsubscribes.forEach(u => u());
+    unsubscribes = [];
+
+    const start = getWeekStart(weekOffset);
+    for (let i = 0; i < 7; i++) {
+      const d   = new Date(start); d.setDate(d.getDate() + i);
+      const key = dateKey(d);
+      const unsub = onSnapshot(workoutRef(key), snap => {
+        if (snap.exists()) {
+          workouts[key] = snap.data();
+        } else {
+          delete workouts[key];
+        }
+        render();
+        setStatus('connected', 'Connected — changes sync in real time');
+      }, err => {
+        setStatus('error', 'Connection error — check your internet');
+        console.error(err);
+      });
+      unsubscribes.push(unsub);
+    }
+  }
+
+  /* ── Helpers ── */
+  function getWeekStart(offset) {
+    const d = new Date(); d.setHours(0,0,0,0);
+    d.setDate(d.getDate() - d.getDay() + offset * 7);
+    return d;
+  }
+  function dateKey(d) { return d.toISOString().slice(0,10); }
+  function formatWeekLabel(s) {
+    const e = new Date(s); e.setDate(e.getDate()+6);
+    return `${MONTHS[s.getMonth()]} ${s.getDate()} \u2013 ${MONTHS[e.getMonth()]} ${e.getDate()}`;
+  }
+  function friendlyDate(key) {
+    const d = new Date(key+'T00:00:00');
+    return `${DAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`;
+  }
+  function blockColor(i) { return BLOCK_COLORS[i % BLOCK_COLORS.length]; }
+  function escHtml(s) {
+    return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  /* ── Calendar render ── */
+  function render() {
+    const start    = getWeekStart(weekOffset);
+    const todayKey = dateKey(new Date());
+    document.getElementById('weekLabel').textContent = formatWeekLabel(start);
+
+    const cal = document.getElementById('calendar');
+    cal.innerHTML = '';
+
+    for (let i = 0; i < 7; i++) {
+      const d   = new Date(start); d.setDate(d.getDate()+i);
+      const key = dateKey(d);
+      const w   = workouts[key];
+
+      const card = document.createElement('div');
+      card.className = ['day-card', w?'has-workout':'', key===todayKey?'today':'', key===selectedDate?'selected':''].filter(Boolean).join(' ');
+      card.setAttribute('tabindex','0');
+      card.onclick = () => selectDay(key);
+      card.onkeydown = e => { if(e.key==='Enter'||e.key===' ') selectDay(key); };
+
+      let preview = '';
+      if (w && w.blocks && w.blocks.length) {
+        w.blocks.slice(0,3).forEach((b, bi) => {
+          preview += `<div class="block-dot"><span class="dot" style="background:${blockColor(bi)}"></span><span style="color:var(--text-muted)">${escHtml(b.name)}</span></div>`;
+        });
+        if (w.blocks.length > 3) preview += `<div class="more-label">+${w.blocks.length-3} more</div>`;
+      } else {
+        preview = `<div class="rest-label">Rest</div>`;
+      }
+
+      card.innerHTML = `
+        <div class="day-name">${DAYS[d.getDay()]}</div>
+        <div class="day-date">${d.getDate()}</div>
+        ${preview}
+        <button class="add-btn" onclick="event.stopPropagation();window._openEdit('${key}')">+</button>`;
+      cal.appendChild(card);
+    }
+
+    renderPanel();
+  }
+
+  /* ── Day selection ── */
+  function selectDay(key) {
+    if (selectedDate === key && mode === 'view') { selectedDate=null; mode=null; }
+    else {
+      selectedDate = key;
+      mode = workouts[key] ? 'view' : 'edit';
+      if (mode === 'edit') initEditBlocks(key);
+    }
+    render();
+    setTimeout(()=>document.getElementById('panel').scrollIntoView({behavior:'smooth',block:'nearest'}),50);
+  }
+
+  function openEdit(key) {
+    selectedDate = key; mode = 'edit';
+    initEditBlocks(key);
+    render();
+    setTimeout(()=>document.getElementById('panel').scrollIntoView({behavior:'smooth',block:'nearest'}),50);
+  }
+
+  function initEditBlocks(key) {
+    editBlocks = workouts[key]
+      ? JSON.parse(JSON.stringify(workouts[key].blocks))
+      : DEFAULT_BLOCKS();
+  }
+
+  /* ── Panel render ── */
+  function renderPanel() {
+    const panel = document.getElementById('panel');
+    if (!selectedDate) { panel.innerHTML = ''; return; }
+
+    if (mode === 'edit') {
+      let blocksHtml = '';
+      editBlocks.forEach((block, bi) => {
+        const color      = blockColor(bi);
+        const validCount = block.exercises.filter(e=>e.name.trim()).length;
+        let rowsHtml = `
+          <div class="col-labels">
+            <span class="col-label">Exercise</span>
+            <span class="col-label">Sets</span>
+            <span class="col-label">Reps</span>
+            <span></span>
+          </div>`;
+        block.exercises.forEach((ex, ei) => {
+          rowsHtml += `
+            <div class="ex-row">
+              <input type="text" placeholder="e.g. Squat" value="${escHtml(ex.name)}"
+                oninput="window._eb[${bi}].exercises[${ei}].name=this.value" />
+              <input type="number" placeholder="3" min="1" value="${escHtml(ex.sets)}"
+                oninput="window._eb[${bi}].exercises[${ei}].sets=this.value" />
+              <input type="number" placeholder="10" min="1" value="${escHtml(ex.reps)}"
+                oninput="window._eb[${bi}].exercises[${ei}].reps=this.value" />
+              <button class="remove-btn" onclick="window._removeEx(${bi},${ei})">&#215;</button>
+            </div>`;
+        });
+        blocksHtml += `
+          <div class="block-card${block.collapsed?' collapsed':''}" id="block-${bi}">
+            <div class="block-header" onclick="window._toggleBlock(${bi})">
+              <div class="block-color-bar" style="background:${color}"></div>
+              <input class="block-name-input" type="text" value="${escHtml(block.name)}"
+                onclick="event.stopPropagation()"
+                oninput="window._eb[${bi}].name=this.value" />
+              <span class="block-count">${validCount} exercise${validCount!==1?'s':''}</span>
+              <span class="block-chevron">&#9660;</span>
+              <button class="block-del-btn" onclick="event.stopPropagation();window._deleteBlock(${bi})">&#215;</button>
+            </div>
+            <div class="block-body">
+              ${rowsHtml}
+              <button class="btn-add-ex" onclick="window._addEx(${bi})">+ Add exercise</button>
+            </div>
+          </div>`;
+      });
+
+      panel.innerHTML = `
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Edit Workout</span>
+            <span class="panel-day-tag">${friendlyDate(selectedDate)}</span>
+          </div>
+          ${blocksHtml}
+          <div class="add-block-row">
+            <button class="btn-add-block" onclick="window._addBlock()">+ Add block</button>
+          </div>
+          <div class="action-row">
+            <button class="btn-save" id="saveBtn" onclick="window._saveDay()">Save workout</button>
+            <button class="btn-cancel" onclick="window._cancelEdit()">Cancel</button>
+            ${workouts[selectedDate]?`<button class="btn-delete" onclick="window._deleteDay()">Delete workout</button>`:''}
+          </div>
+        </div>`;
+
+    } else if (mode === 'view') {
+      const w = workouts[selectedDate];
+      let blocksHtml = '';
+      if (w && w.blocks) {
+        w.blocks.forEach((block, bi) => {
+          const color = blockColor(bi);
+          const valid = block.exercises.filter(e=>e.name.trim());
+          if (!valid.length) return;
+          let listHtml = '<ul class="exercise-list">';
+          valid.forEach(ex => {
+            listHtml += `<li>
+              <span class="ex-name">${escHtml(ex.name)}</span>
+              <span class="ex-meta">${escHtml(ex.sets)} sets &times; ${escHtml(ex.reps)} reps</span>
+            </li>`;
+          });
+          listHtml += '</ul>';
+          blocksHtml += `
+            <div class="view-block">
+              <div class="view-block-title">
+                <span class="view-block-bar" style="background:${color}"></span>
+                <span style="color:${color}">${escHtml(block.name)}</span>
+              </div>
+              ${listHtml}
+            </div>`;
+        });
+      }
+      panel.innerHTML = `
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">${friendlyDate(selectedDate)}</span>
+            <button class="btn-close" onclick="selectedDate=null;window._closePanel();">&times;</button>
+          </div>
+          ${blocksHtml || '<p style="color:var(--text-faint);font-size:14px;">No exercises logged.</p>'}
+          <div class="action-row">
+            <button class="btn-edit" onclick="window._openEdit('${selectedDate}')">Edit workout</button>
+          </div>
+        </div>`;
+    }
+
+    /* Expose editBlocks to inline handlers */
+    window._eb = editBlocks;
+  }
+
+  /* ── Edit actions ── */
+  function toggleBlock(bi) { editBlocks[bi].collapsed = !editBlocks[bi].collapsed; renderPanel(); }
+  function addBlock() {
+    editBlocks.push({ name: `Workout Block ${editBlocks.length}`, exercises: [{ name:'', sets:'', reps:'' }], collapsed: false });
+    renderPanel();
+  }
+  function deleteBlock(bi) {
+    if (editBlocks.length === 1) { alert('You need at least one block.'); return; }
+    editBlocks.splice(bi, 1); renderPanel();
+  }
+  function addEx(bi) {
+    editBlocks[bi].exercises.push({ name:'', sets:'', reps:'' });
+    editBlocks[bi].collapsed = false; renderPanel();
+  }
+  function removeEx(bi, ei) {
+    editBlocks[bi].exercises.splice(ei, 1);
+    if (!editBlocks[bi].exercises.length) editBlocks[bi].exercises.push({ name:'', sets:'', reps:'' });
+    renderPanel();
+  }
+  function cancelEdit() { mode = workouts[selectedDate] ? 'view' : null; render(); }
+  function closePanel()  { selectedDate=null; mode=null; render(); }
+
+  async function saveDay() {
+    const hasAny = editBlocks.some(b => b.exercises.some(e => e.name.trim()));
+    if (!hasAny) { alert('Add at least one exercise before saving.'); return; }
+    const btn = document.getElementById('saveBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    try {
+      const data = { blocks: JSON.parse(JSON.stringify(editBlocks)) };
+      await saveToFirebase(selectedDate, data);
+      workouts[selectedDate] = data;
+      mode = 'view';
+      render();
+    } catch(e) {
+      alert('Save failed — check your internet connection.');
+      if (btn) { btn.disabled = false; btn.textContent = 'Save workout'; }
+    }
+  }
+
+  async function deleteDay() {
+    if (!confirm('Delete this workout?')) return;
+    try {
+      await deleteFromFirebase(selectedDate);
+      delete workouts[selectedDate];
+      selectedDate = null; mode = null;
+      render();
+    } catch(e) {
+      alert('Delete failed — check your internet connection.');
+    }
+  }
+
+  /* ── Expose to inline HTML handlers ── */
+  window._openEdit    = openEdit;
+  window._closePanel  = closePanel;
+  window._toggleBlock = toggleBlock;
+  window._addBlock    = addBlock;
+  window._deleteBlock = deleteBlock;
+  window._addEx       = addEx;
+  window._removeEx    = removeEx;
+  window._cancelEdit  = cancelEdit;
+  window._saveDay     = saveDay;
+  window._deleteDay   = deleteDay;
+
+  /* ── Nav ── */
+  document.getElementById('prevWeek').onclick = () => {
+    weekOffset--; selectedDate=null; mode=null;
+    subscribeToWeek();
+  };
+  document.getElementById('nextWeek').onclick = () => {
+    weekOffset++; selectedDate=null; mode=null;
+    subscribeToWeek();
+  };
+
+  /* ── Init ── */
+  setStatus('', 'Connecting to database…');
+  subscribeToWeek();
+</script>
+</body>
+</html>
